@@ -1,6 +1,7 @@
 const express = require("express");
 const sql = require("mssql");
 const cors = require("cors");
+const ping = require('ping');
 
 const app = express();
 app.use(cors());
@@ -22,6 +23,274 @@ const config = {
 sql.connect(config)
   .then(() => console.log("✅ Kết nối SQL Server thành công!"))
   .catch((err) => console.error("❌ Lỗi kết nối SQL Server:", err));
+
+
+// Đối tượng lưu trữ thông tin thiết bị WiFi
+const wifiDevices = [
+{ name: "AP-KTX Dom A-ACP", ip: "10.10.0.81" },
+{ name: "AP-KTX Dom B-ACP", ip: "10.10.0.79" },
+{ name: "AP-VOVINAM", ip: "10.10.0.87" },
+{ name: "AP-Tang-5-515-U6", ip: "10.10.0.83" },
+{ name: "AP-BT-CTSV-U6", ip: "10.10.0.102" },
+{ name: "AP-BT-FU-U6P", ip: "10.10.0.184" },
+{ name: "AP-BT-IT-ACP", ip: "10.10.0.76" },
+{ name: "AP-BT-Phong AI-U6", ip: "10.10.0.71" },
+{ name: "AP-BT-Phong hop-ACP", ip: "10.10.0.52" },
+{ name: "AP-BT-Sales-U6P", ip: "10.10.0.139" },
+{ name: "AP-BT-SanTruong-01-U6", ip: "10.10.0.117" },
+{ name: "AP-BT-SanTruong-02-U6P", ip: "10.10.0.91" },
+{ name: "AP-BT-SanTruong-03-ACP", ip: "10.10.0.82" },
+{ name: "AP-BT-Server-ACP", ip: "10.10.0.86" },
+{ name: "AP-BT-Tang 4-401-U6", ip: "10.10.0.97" },
+{ name: "AP-BT-Tang 4-404-U6", ip: "10.10.0.103" },
+{ name: "AP-BT-Tang 5-506-U6", ip: "10.10.0.116" },
+{ name: "AP-BT-Tang-2-201-U6P", ip: "10.10.0.100" },
+{ name: "AP-BT-Tang-2-203-U6P", ip: "10.10.0.57" },
+{ name: "AP-BT-Tang-2-204-U6P", ip: "10.10.0.107" },
+{ name: "AP-BT-Tang-2-206-U6", ip: "10.10.0.58" },
+{ name: "AP-BT-Tang-2-208-ACP", ip: "10.10.0.51" },
+{ name: "AP-BT-Tang-2-209-ACP", ip: "10.10.0.65" },
+{ name: "AP-BT-Tang-2-212-U6", ip: "10.10.0.98" },
+{ name: "AP-BT-Tang-2-213-ACP", ip: "10.10.0.84" },
+{ name: "AP-BT-Tang-2-214-U6P", ip: "10.10.0.60" },
+{ name: "AP-BT-Tang-2-216-ACP", ip: "10.10.0.62" },
+{ name: "AP-BT-Tang-2-217-U6P", ip: "10.10.0.104" },
+{ name: "AP-BT-Tang-2-218-ACP", ip: "10.10.0.63" },
+{ name: "AP-BT-Tang-2-220-U6", ip: "10.10.0.69" },
+{ name: "AP-BT-Tang-2-222-U6", ip: "10.10.0.92" },
+{ name: "AP-BT-Tang-2-224-U6P", ip: "10.10.0.61" },
+{ name: "AP-BT-Tang-3-301-U6P", ip: "10.10.0.128" },
+{ name: "AP-BT-Tang-3-303-U6P", ip: "10.10.0.129" },
+{ name: "AP-BT-Tang-3-304-U6P", ip: "10.10.0.67" },
+{ name: "AP-BT-Tang-3-305-U6P", ip: "10.10.0.73" },
+{ name: "AP-BT-Tang-3-306-U6P", ip: "10.10.0.72" },
+{ name: "AP-BT-Tang-3-308-U6P", ip: "10.10.0.80" },
+{ name: "AP-BT-Tang-3-309-U6P", ip: "10.10.0.130" },
+{ name: "AP-BT-Tang-3-311-U6P", ip: "10.10.0.85" },
+{ name: "AP-BT-Tang-3-312-U6P", ip: "10.10.0.108" },
+{ name: "AP-BT-Tang-3-313-U6P", ip: "10.10.0.131" },
+{ name: "AP-BT-Tang-3-314-U6P", ip: "10.10.0.75" },
+{ name: "AP-BT-Tang-3-316-U6P", ip: "10.10.0.133" },
+{ name: "AP-BT-Tang-3-317-U6P", ip: "10.10.0.132" },
+{ name: "AP-BT-Tang-3-320-U6", ip: "10.10.0.101" },
+{ name: "AP-BT-Tang-3-322-U6", ip: "10.10.0.78" },
+{ name: "AP-BT-Tang-3-323-U6P", ip: "10.10.0.190" },
+{ name: "AP-BT-Tang-3-324-U6", ip: "10.10.0.191" },
+{ name: "AP-BT-Tang-4-403-U6", ip: "10.10.0.119" },
+{ name: "AP-BT-Tang-4-405-U6", ip: "10.10.0.110" },
+{ name: "AP-BT-Tang-4-406-U6", ip: "10.10.0.125" },
+{ name: "AP-BT-Tang-4-408-U6P", ip: "10.10.0.127" },
+{ name: "AP-BT-Tang-4-409-U6P", ip: "10.10.0.123" },
+{ name: "AP-BT-Tang-4-411-U6", ip: "10.10.0.122" },
+{ name: "AP-BT-Tang-4-412-U6", ip: "10.10.0.111" },
+{ name: "AP-BT-Tang-4-413-U6", ip: "10.10.0.53" },
+{ name: "AP-BT-Tang-4-414-U6", ip: "10.10.0.126" },
+{ name: "AP-BT-Tang-4-416-U6", ip: "10.10.0.105" },
+{ name: "AP-BT-Tang-4-417-U6", ip: "10.10.0.94" },
+{ name: "AP-BT-Tang-4-418-U6", ip: "10.10.0.118" },
+{ name: "AP-BT-Tang-4-419-U6", ip: "10.10.0.112" },
+{ name: "AP-BT-Tang-4-420-U6", ip: "10.10.0.74" },
+{ name: "AP-BT-Tang-4-421-U6", ip: "10.10.0.124" },
+{ name: "AP-BT-Tang-4-422-U6", ip: "10.10.0.113" },
+{ name: "AP-BT-Tang-4-423-U6", ip: "10.10.0.114" },
+{ name: "AP-BT-Tang-4-424-U6P", ip: "10.10.0.186" },
+{ name: "AP-BT-Tang-5-503-U6", ip: "10.10.0.59" },
+{ name: "AP-BT-Tang-5-505-ACP", ip: "10.10.0.55" },
+{ name: "AP-BT-Tang-5-507-U6P", ip: "10.10.0.106" },
+{ name: "AP-BT-Tang-5-509-U6", ip: "10.10.0.115" },
+{ name: "AP-BT-Tang-5-510-U6", ip: "10.10.0.135" },
+{ name: "AP-BT-Tang-5-511-U6", ip: "10.10.0.64" },
+{ name: "AP-BT-Tang-5-512-U6P", ip: "10.10.0.183" },
+{ name: "AP-BT-Tang-5-513-U6P", ip: "10.10.0.99" },
+{ name: "AP-BT-Tang-5-H1-U6", ip: "10.10.0.121" },
+{ name: "AP-BT-Tang-5-H2-U6", ip: "10.10.0.222" },
+{ name: "AP-BT-Tang-5-H3-U6", ip: "10.10.0.120" },
+{ name: "AP-BT-Tang-3-318-ACP", ip: "10.10.0.68" },
+{ name: "AP-BT-Thu vien-01-ACP", ip: "10.10.0.54" },
+{ name: "AP-BT-Thu vien-03-ACP", ip: "10.10.0.95" },
+{ name: "AP-BT-Thuvien-02-ACP", ip: "10.10.0.134" },
+{ name: "AP-GM-104-PhongHop-U6P", ip: "10.10.0.188" },
+{ name: "AP-GM-PDichVu-U6P", ip: "10.10.0.141" },
+{ name: "AP-GM-SanTruong-01-U6P", ip: "10.10.0.142" },
+{ name: "AP-GM-SanTruong-02-U6P", ip: "10.10.0.143" },
+{ name: "AP-GM-SanTruong-03-U6P", ip: "10.10.0.144" },
+{ name: "AP-GM-Server-ACP", ip: "10.10.0.77" },
+{ name: "AP-GM-Tang-2-201-U6P", ip: "10.10.0.148" },
+{ name: "AP-GM-Tang-2-203-U6P", ip: "10.10.0.149" },
+{ name: "AP-GM-Tang-2-204-ACP", ip: "10.10.0.158" },
+{ name: "AP-GM-Tang-2-205-U6P", ip: "10.10.0.150" },
+{ name: "AP-GM-Tang-2-208-ACP", ip: "10.10.0.162" },
+{ name: "AP-GM-Tang-2-209-ACP", ip: "10.10.0.161" },
+{ name: "AP-GM-Tang-2-213-U6P", ip: "10.10.0.159" },
+{ name: "AP-GM-Tang-2-214-U6", ip: "10.10.0.175" },
+{ name: "AP-GM-Tang-2-215-U6P", ip: "10.10.0.152" },
+{ name: "AP-GM-Tang-2-217-U6P", ip: "10.10.0.153" },
+{ name: "AP-GM-Tang-2-218-U6P", ip: "10.10.0.160" },
+{ name: "AP-GM-Tang-2-219-U6P", ip: "10.10.0.154" },
+{ name: "AP-GM-Tang-2-222-ACP", ip: "10.10.0.163" },
+{ name: "AP-GM-Tang-2-223-U6P", ip: "10.10.0.155" },
+{ name: "AP-GM-Tang-2-225-U6P", ip: "10.10.0.157" },
+  { name: "AP-GM-Tang-2-226-U6P", ip: "10.10.0.156" },
+  { name: "AP-GM-Tang-3-301-U6P", ip: "10.10.0.164" },
+  { name: "AP-GM-Tang-3-303-U6P", ip: "10.10.0.165" },
+  { name: "AP-GM-Tang-3-304-U6P", ip: "10.10.0.181" },
+  { name: "AP-GM-Tang-3-305-U6P", ip: "10.10.0.169" },
+  { name: "AP-GM-Tang-3-308-U6P", ip: "10.10.0.179" },
+  { name: "AP-GM-Tang-3-309-ACP", ip: "10.10.0.180" },
+  { name: "AP-GM-Tang-3-311-U6", ip: "10.10.0.174" },
+  { name: "AP-GM-Tang-3-313-U6P", ip: "10.10.0.177" },
+  { name: "AP-GM-Tang-3-314-U6P", ip: "10.10.0.168" },
+  { name: "AP-GM-Tang-3-315-U6P", ip: "10.10.0.173" },
+  { name: "AP-GM-Tang-3-317-U6P", ip: "10.10.0.171" },
+  { name: "AP-GM-Tang-3-318-U6P", ip: "10.10.0.176" },
+  { name: "AP-GM-Tang-3-319-U6P", ip: "10.10.0.172" },
+  { name: "AP-GM-Tang-3-322-ACP", ip: "10.10.0.178" },
+  { name: "AP-GM-Tang-3-323-U6P", ip: "10.10.0.167" },
+  { name: "AP-GM-Tang-3-325-U6P", ip: "10.10.0.182" },
+  { name: "AP-GM-Tang-3-326-U6P", ip: "10.10.0.166" },
+  { name: "AP-GM-ThuVien-01-U6P", ip: "10.10.0.145" },
+  { name: "AP-GM-ThuVien-03-U6P", ip: "10.10.0.146" },
+  { name: "AP-GM-ThuVien-04-U6", ip: "10.10.0.147" },
+  { name: "AP-GM-VPFSC-U6P", ip: "10.10.0.140" },
+  { name: "AP-NCV -6-T2-ACP", ip: "10.10.0.89" },
+  { name: "AP-NCV 7-T2-ACP", ip: "10.10.0.93" },
+  { name: "AP-NCV-5-T1-ACP", ip: "10.10.0.90" }, 
+  { name: "AP-NCV-5-T2-ACP", ip: "10.10.0.88" },
+  { name: "AP-NCV-6-T1-Lite", ip: "10.10.0.56" },
+  { name: "AP-NCV-7-T1-Lite", ip: "10.10.0.70" },
+  { name: "Ban Xay Dung-ACP", ip: "10.10.0.96" }, 
+];
+// Hàm ping thiết bị
+const pingDevice = async (device) => {
+  try {
+    const res = await ping.promise.probe(device.ip, {
+      timeout: 2, // Thời gian chờ tối đa 2 giây
+      extra: ['-i', '2'], // Gửi 2 gói ping
+    });
+    
+    return {
+      name: device.name,
+      ip: device.ip,
+      status: res.alive ? 'online' : 'offline',
+      responseTime: res.alive ? parseInt(res.avg) || 0 : 0,
+    };
+  } catch (error) {
+    console.error(`Lỗi khi ping thiết bị ${device.name} (${device.ip}):`, error);
+    return {
+      name: device.name,
+      ip: device.ip,
+      status: 'offline',
+      responseTime: 0,
+    };
+  }
+};
+
+// Hàm lưu kết quả ping vào database
+const savePingResult = async (result) => {
+  try {
+    const request = new sql.Request();
+    await request
+      .input('device_name', sql.NVarChar, result.name)
+      .input('ip_address', sql.NVarChar, result.ip)
+      .input('status', sql.NVarChar, result.status)
+      .input('response_time', sql.Int, result.responseTime)
+      .query(`
+        INSERT INTO WifiDeviceStatus 
+        (device_name, ip_address, status, response_time, checked_at)
+        VALUES (@device_name, @ip_address, @status, @response_time, GETDATE())
+      `);
+  } catch (dbError) {
+    console.error('Lỗi database khi lưu kết quả ping:', dbError);
+  }
+};
+
+// Thêm endpoint tìm kiếm WiFi locations
+app.get("/api/wifi-locations", async (req, res) => {
+  const { search } = req.query;
+  
+  try {
+    // Luôn trả về JSON
+    res.setHeader('Content-Type', 'application/json');
+    
+    const request = new sql.Request();
+    const query = `
+      SELECT 'Beta - Tầng 1' as location, Name as name, '/tang1beta' as path FROM Tang1Beta WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Beta - Tầng 2', Name, '/tang2beta' FROM Tang2Beta WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Beta - Tầng 3', Name, '/tang3beta' FROM Tang3Beta WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Beta - Tầng 4', Name, '/tang4beta' FROM Tang4Beta WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Beta - Tầng 5', Name, '/tang5beta' FROM Tang5Beta WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Gamma - Tầng 1', Name, '/tang1gamma' FROM Tang1Gamma WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Gamma - Tầng 2', Name, '/tang2gamma' FROM Tang2Gamma WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Gamma - Tầng 3', Name, '/tang3gamma' FROM Tang3Gamma WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Gamma - Tầng 4', Name, '/tang4gamma' FROM Tang4Gamma WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Gamma - Tầng 5', Name, '/tang5gamma' FROM Tang5Gamma WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Nhà CV số 5 - Tầng 1', Name, '/tang1ncvso5' FROM Tang1NCVso5 WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Nhà CV số 5 - Tầng 2', Name, '/tang2ncvso5' FROM Tang2NCVso5 WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Nhà CV số 6 - Tầng 1', Name, '/tang1ncvso6' FROM Tang1NCVso6 WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Nhà CV số 6 - Tầng 2', Name, '/tang2ncvso6' FROM Tang2NCVso6 WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Nhà CV số 7 - Tầng 1', Name, '/tang1ncvso7' FROM Tang1NCVso7 WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Nhà CV số 7 - Tầng 2', Name, '/tang2ncvso7' FROM Tang2NCVso7 WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'KTX Dom A', Name, '/ktxdoma' FROM KTXDomA WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'KTX Dom B', Name, '/ktxdomb' FROM KTXDomB WHERE Name LIKE '%'+@search+'%'
+      UNION ALL SELECT 'Sân Vovinam', Name, '/vovinam' FROM Vovinam WHERE Name LIKE '%'+@search+'%'
+      ORDER BY name
+    `;
+    
+    const result = await request
+      .input('search', sql.NVarChar, search || '')
+      .query(query);
+    
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi tìm kiếm WiFi locations:", error);
+    // Luôn trả về JSON kể cả khi lỗi
+    res.status(500).json({ 
+      error: "Lỗi truy vấn SQL Server",
+      details: error.message 
+    });
+  }
+});
+
+// API để ping tất cả thiết bị
+app.get('/api/ping-all-devices', async (req, res) => {
+  try {
+    console.log('Bắt đầu ping các thiết bị...');
+    
+    // Ping từng thiết bị tuần tự để tránh quá tải
+    const pingResults = [];
+    for (const device of wifiDevices) {
+      try {
+        const result = await pingDevice(device);
+        pingResults.push(result);
+        await savePingResult(result);
+        console.log(`Đã ping ${device.name} (${device.ip}): ${result.status}`);
+      } catch (error) {
+        console.error(`Lỗi khi xử lý thiết bị ${device.name}:`, error);
+        pingResults.push({
+          name: device.name,
+          ip: device.ip,
+          status: 'offline',
+          responseTime: 0
+        });
+      }
+      // Thêm delay 100ms giữa các lần ping
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    res.json({
+      success: true,
+      data: pingResults,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Lỗi khi ping thiết bị:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Ping failed',
+      details: error.message 
+    });
+  }
+});
 
 // ✅ GET - Lấy danh sách WiFi tầng 1 Beta
 app.get("/api/tang1beta", async (req, res) => {
@@ -751,6 +1020,342 @@ app.delete("/api/tang3gamma/:id", async (req, res) => {
   }
 });
 
+// ✅ GET - Lấy danh sách WiFi Tầng 4 Gamma
+app.get("/api/tang4gamma", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM tang4gamma");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi mới Tầng 4 Gamma
+app.post("/api/tang4gamma", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO tang4gamma (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi Tầng 4 Gamma (Tên + vị trí)
+app.put("/api/tang4gamma/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE tang4gamma
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi Tầng 4 Gamma
+app.delete("/api/tang4gamma/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM tang4gamma WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
+// ✅ GET - Lấy danh sách WiFi Tầng 4 Gamma
+app.get("/api/tang4gamma", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM tang4gamma");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi Tầng 4 Gamma
+app.post("/api/tang4gamma", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO tang4gamma (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi Tầng 4 Gamma (Tên + vị trí)
+app.put("/api/tang4gamma/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE tang4gamma
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi Tầng 4 Gamma
+app.delete("/api/tang4gamma/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM tang4gamma WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
+// ✅ GET - Lấy danh sách WiFi Tầng 5 Gamma
+app.get("/api/tang5gamma", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM tang5gamma");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi mới Tầng 5 Gamma
+app.post("/api/tang5gamma", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO tang5gamma (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi Tầng 5 Gamma (Tên + vị trí)
+app.put("/api/tang5gamma/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE tang5gamma
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi Tầng 5 Gamma
+app.delete("/api/tang5gamma/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM tang5gamma WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
+// ✅ GET - Lấy danh sách WiFi Tầng 5 Gamma
+app.get("/api/tang5gamma", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM tang4gamma");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi Tầng 5 Gamma
+app.post("/api/tang5gamma", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO tang5gamma (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi Tầng 5 Gamma (Tên + vị trí)
+app.put("/api/tang5gamma/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE tang5gamma
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi Tầng 5 Gamma
+app.delete("/api/tang5gamma/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM tang5gamma WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
 // ✅ GET - Lấy danh sách WiFi tầng 1 nhà CV số 5
 app.get("/api/tang1ncvso5", async (req, res) => {
   try {
@@ -1435,6 +2040,174 @@ app.delete("/api/ktxdoma/:id", async (req, res) => {
   }
 });
 
+// ✅ GET - Lấy danh sách WiFi sân Vovinam
+app.get("/api/vovinam", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM vovinam");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi mới sân vovinam
+app.post("/api/vovinam", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO vovinam (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi sân vovinam (Tên + vị trí)
+app.put("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE vovinam
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi sân vovinam
+app.delete("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM vovinam WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
+// ✅ GET - Lấy danh sách WiFi sân vovinam
+app.get("/api/vovinam", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM vovinam");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi sân vovinam
+app.post("/api/vovinam", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO vovinam (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi sân vovinam (Tên + vị trí)
+app.put("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE vovinam
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi sân vovinam
+app.delete("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM vovinam WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
 // ✅ POST - Xử lý đăng nhập
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
@@ -1629,8 +2402,194 @@ app.get("/api/tang2ncvso7", async (req, res) => {
   
 });
 
+// ✅ GET - Lấy danh sách WiFi sân Vovinam
+app.get("/api/vovinam", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM vovinam");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi mới sân vovinam
+app.post("/api/vovinam", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO vovinam (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi sân vovinam (Tên + vị trí)
+app.put("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE vovinam
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi sân vovinam
+app.delete("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM vovinam WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
+// ✅ GET - Lấy danh sách WiFi sân vovinam
+app.get("/api/vovinam", async (req, res) => {
+  try {
+    const result = await sql.query("SELECT * FROM vovinam");
+    console.log("🔍 Dữ liệu lấy từ SQL:", result.recordset);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("❌ Lỗi truy vấn SQL:", error);
+    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
+  }
+});
+// ✅ POST - Thêm WiFi sân vovinam
+app.post("/api/vovinam", async (req, res) => {
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        INSERT INTO vovinam (Name, TopPosition, LeftPosition)
+        OUTPUT INSERTED.*
+        VALUES (@name, @topPosition, @leftPosition)
+      `);
+
+    const insertedWifi = result.recordset[0];
+
+    res.status(201).json({ message: "✅ Thêm WiFi thành công", wifi: insertedWifi });
+  } catch (err) {
+    console.error("❌ Lỗi thêm WiFi:", err);
+    res.status(500).json({ error: "Lỗi khi thêm WiFi vào cơ sở dữ liệu" });
+  }
+});
+// ✅ PUT - Cập nhật WiFi sân vovinam (Tên + vị trí)
+app.put("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, topPosition, leftPosition } = req.body;
+
+  try {
+    const request = new sql.Request();
+    await request
+      .input("id", sql.Int, parseInt(id))
+      .input("name", sql.NVarChar, name)
+      .input("topPosition", sql.VarChar, topPosition)
+      .input("leftPosition", sql.VarChar, leftPosition)
+      .query(`
+        UPDATE vovinam
+        SET 
+          name = @name,
+          topPosition = @topPosition,
+          leftPosition = @leftPosition
+        WHERE id = @id
+      `);
+
+    res.send("✅ Đã cập nhật WiFi (tên + vị trí) thành công");
+  } catch (error) {
+    console.error("❌ Lỗi cập nhật WiFi:", error);
+    res.status(500).json({ error: "Lỗi cập nhật WiFi", details: error.message });
+  }
+});
+
+//Chức năng xóa wifi sân vovinam
+app.delete("/api/vovinam/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = new sql.Request();
+    const result = await request
+      .input("id", sql.Int, parseInt(id))
+      .query("DELETE FROM vovinam WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).send("WiFi không tồn tại");
+    }
+
+    res.status(200).send({ message: "✅ Xóa thành công" });
+  } catch (err) {
+    console.error("❌ Lỗi server khi xóa WiFi:", err);
+    res.status(500).send("Lỗi server");
+  }
+});
+
 // ✅ Khởi động server
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
+  // Tự động ping các thiết bị mỗi phút
+  setInterval(async () => {
+    try {
+      console.log('🔄 Đang tự động ping các thiết bị...');
+      for (const device of wifiDevices) {
+        try {
+          const result = await pingDevice(device);
+          await savePingResult(result);
+        } catch (error) {
+          console.error(`Lỗi khi tự động ping ${device.name}:`, error);
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      console.log('✅ Đã cập nhật trạng thái thiết bị');
+    } catch (error) {
+      console.error('Lỗi khi tự động ping:', error);
+    }
+  }, 1 * 60 * 1000); // 1 phút
 });
