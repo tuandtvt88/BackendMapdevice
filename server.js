@@ -12,7 +12,7 @@ const config = {
   user: "mapdevice",
   password: "D@ihocfpt2025",
   server: "sqlmapdevice.database.windows.net",
-  database: "WifiBeta",
+  database: "mapdevice",
   options: {
     encrypt: true,
     trustServerCertificate: false,
