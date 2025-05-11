@@ -7,15 +7,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Cấu hình kết nối SQL Server
+// Cấu hình kết nối đến Azure SQL
 const config = {
-  user: "sa",
+  user: "mapdevice",
   password: "D@ihocfpt2025",
-  server: "TuanIT\\MAPDEVICE",
+  server: "sqlmapdevice.database.windows.net",
   database: "WifiBeta",
   options: {
-    encrypt: false,
-    trustServerCertificate: true,
+    encrypt: true,
+    trustServerCertificate: false,
   },
 };
 
