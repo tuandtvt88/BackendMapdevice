@@ -19,49 +19,10 @@ const config = {
   },
 };
 
-// Thay đổi phần kết nối SQL như sau:
-
-let sqlConnectionPool;
-
-async function connectToDatabase() {
-  try {
-    sqlConnectionPool = await sql.connect(config);
-    console.log("✅ Kết nối SQL Server thành công!");
-    
-    // Xử lý khi kết nối bị lỗi
-    sqlConnectionPool.on('error', err => {
-      console.error('❌ Lỗi kết nối SQL:', err);
-      // Tự động kết nối lại sau 5 giây
-      setTimeout(connectToDatabase, 5000);
-    });
-    
-  } catch (err) {
-    console.error("❌ Lỗi kết nối SQL Server:", err);
-    // Tự động thử kết nối lại sau 5 giây
-    setTimeout(connectToDatabase, 5000);
-  }
-}
-
-// Gọi hàm kết nối khi khởi động
-connectToDatabase();
-
-// Trong mỗi route handler, kiểm tra kết nối trước khi thực hiện truy vấn
-app.get("/api/tang1beta", async (req, res) => {
-  try {
-    if (!sqlConnectionPool || !sqlConnectionPool.connected) {
-      await connectToDatabase();
-      if (!sqlConnectionPool.connected) {
-        return res.status(500).json({ error: "Đang kết nối lại database, vui lòng thử lại sau" });
-      }
-    }
-    
-    const result = await sqlConnectionPool.request().query("SELECT * FROM tang1beta");
-    res.json(result.recordset);
-  } catch (error) {
-    console.error("❌ Lỗi truy vấn SQL:", error);
-    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
-  }
-});
+// Kết nối SQL Server
+sql.connect(config)
+  .then(() => console.log("✅ Kết nối SQL Server thành công!"))
+  .catch((err) => console.error("❌ Lỗi kết nối SQL Server:", err));
 
 
 // Đối tượng lưu trữ thông tin thiết bị WiFi
