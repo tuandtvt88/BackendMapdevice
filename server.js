@@ -308,15 +308,6 @@ async function checkPort(ip, port = 80, timeout = 1000) {
 
 
 
-// Thêm hàm kiểm tra quyền ping
-function checkPingPermission() {
-  try {
-    require('child_process').execSync('ping -c 1 127.0.0.1');
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 // Sửa lại hàm pingDevice
 const pingDevice = async (device) => {
