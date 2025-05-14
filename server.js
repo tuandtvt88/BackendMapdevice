@@ -209,9 +209,11 @@ function broadcastPingResult(result) {
 // Ping a single device
 const pingDevice = async (device) => {
   try {
+    // Thêm option để sử dụng hệ thống ping thay vì spawn
     const res = await ping.promise.probe(device.ip, {
       timeout: 2,
       extra: ['-i', '2'],
+      v6: false, // Chỉ sử dụng IPv4
     });
     
     const status = {
@@ -228,13 +230,17 @@ const pingDevice = async (device) => {
     return status;
   } catch (error) {
     console.error(`Error pinging ${device.ip}:`, error);
+    
+    // Thêm fallback khi ping không hoạt động
     const status = {
       name: device.name,
       ip: device.ip,
-      status: 'offline',
+      status: 'unknown', // Thay vì 'offline'
       responseTime: 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      error: error.message
     };
+    
     await savePingResult(status);
     broadcastPingResult(status);
     return status;
