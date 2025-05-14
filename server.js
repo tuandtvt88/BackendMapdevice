@@ -10,7 +10,8 @@ app.use(cors());
 app.use(express.json());
 
 // Load environment variables
-require('sql.env').config();
+require('dotenv').config({ path: './sql.env' });
+
 
 // Cấu hình kết nối đến Azure SQL
 const config = {
