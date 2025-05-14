@@ -2,22 +2,34 @@ const express = require("express");
 const sql = require("mssql");
 const cors = require("cors");
 const ping = require('ping');
+const WebSocket = require('ws');
+const schedule = require('node-schedule');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Load environment variables
+require('sql.env').config();
+
 // Cấu hình kết nối đến Azure SQL
 const config = {
-  user: "mapdevice",
-  password: "D@ihocfpt2025",
-  server: "sqlmapdevice.database.windows.net",
-  database: "mapdevice",
+  user: process.env.AZURE_SQL_USER,
+  password: process.env.AZURE_SQL_PASSWORD,
+  server: process.env.AZURE_SQL_SERVER,
+  database: process.env.AZURE_SQL_DB,
   options: {
     encrypt: true,
     trustServerCertificate: false,
   },
 };
+
+// Initialize WebSocket server
+const server = app.listen(process.env.PORT || 5000, () => {
+  console.log(`🚀 Server running on port ${server.address().port}`);
+});
+
+const wss = new WebSocket.Server({ server });
 
 // Thay đổi phần kết nối SQL như sau:
 
@@ -44,25 +56,6 @@ async function connectToDatabase() {
 
 // Gọi hàm kết nối khi khởi động
 connectToDatabase();
-
-// Trong mỗi route handler, kiểm tra kết nối trước khi thực hiện truy vấn
-app.get("/api/tang1beta", async (req, res) => {
-  try {
-    if (!sqlConnectionPool || !sqlConnectionPool.connected) {
-      await connectToDatabase();
-      if (!sqlConnectionPool.connected) {
-        return res.status(500).json({ error: "Đang kết nối lại database, vui lòng thử lại sau" });
-      }
-    }
-    
-    const result = await sqlConnectionPool.request().query("SELECT * FROM tang1beta");
-    res.json(result.recordset);
-  } catch (error) {
-    console.error("❌ Lỗi truy vấn SQL:", error);
-    res.status(500).json({ error: "Lỗi truy vấn SQL Server", details: error.message });
-  }
-});
-
 
 // Đối tượng lưu trữ thông tin thiết bị WiFi
 const wifiDevices = [
@@ -199,49 +192,181 @@ const wifiDevices = [
   { name: "AP-NCV-7-T1-Lite", ip: "10.10.0.70" },
   { name: "Ban Xay Dung-ACP", ip: "10.10.0.96" }, 
 ];
-// Hàm ping thiết bị
+
+// Broadcast function for WebSocket
+function broadcastPingResult(result) {
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({
+        type: 'PING_UPDATE',
+        data: result
+      }));
+    }
+  });
+}
+
+// Ping a single device
 const pingDevice = async (device) => {
   try {
     const res = await ping.promise.probe(device.ip, {
-      timeout: 2, // Thời gian chờ tối đa 2 giây
-      extra: ['-i', '2'], // Gửi 2 gói ping
+      timeout: 2,
+      extra: ['-i', '2'],
     });
     
-    return {
+    const status = {
       name: device.name,
       ip: device.ip,
       status: res.alive ? 'online' : 'offline',
       responseTime: res.alive ? parseInt(res.avg) || 0 : 0,
+      timestamp: new Date().toISOString()
     };
+
+    await savePingResult(status);
+    broadcastPingResult(status);
+    
+    return status;
   } catch (error) {
-    console.error(`Lỗi khi ping thiết bị ${device.name} (${device.ip}):`, error);
-    return {
+    console.error(`Error pinging ${device.ip}:`, error);
+    const status = {
       name: device.name,
       ip: device.ip,
       status: 'offline',
       responseTime: 0,
+      timestamp: new Date().toISOString()
     };
+    await savePingResult(status);
+    broadcastPingResult(status);
+    return status;
   }
 };
 
 // Hàm lưu kết quả ping vào database
-const savePingResult = async (result) => {
+// API to ping all devices
+app.get('/api/ping-all-devices', async (req, res) => {
   try {
-    const request = new sql.Request();
-    await request
-      .input('device_name', sql.NVarChar, result.name)
-      .input('ip_address', sql.NVarChar, result.ip)
-      .input('status', sql.NVarChar, result.status)
-      .input('response_time', sql.Int, result.responseTime)
-      .query(`
-        INSERT INTO WifiDeviceStatus 
-        (device_name, ip_address, status, response_time, checked_at)
-        VALUES (@device_name, @ip_address, @status, @response_time, GETDATE())
-      `);
-  } catch (dbError) {
-    console.error('Lỗi database khi lưu kết quả ping:', dbError);
+    console.log('Starting to ping all devices...');
+    const pingResults = [];
+    
+    for (const device of wifiDevices) {
+      try {
+        const result = await pingDevice(device);
+        pingResults.push(result);
+        console.log(`Pinged ${device.name} (${device.ip}): ${result.status}`);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`Error processing device ${device.name}:`, error);
+        pingResults.push({
+          name: device.name,
+          ip: device.ip,
+          status: 'offline',
+          responseTime: 0,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: pingResults,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error pinging devices:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Ping failed',
+      details: error.message 
+    });
   }
-};
+});
+
+// API to get current device statuses
+app.get("/api/device-status", async (req, res) => {
+  try {
+    if (!sqlConnectionPool || !sqlConnectionPool.connected) {
+      await connectToDatabase();
+    }
+    
+    const request = new sql.Request();
+    const result = await request.query(`
+      SELECT device_name, ip_address, status, response_time, checked_at
+      FROM WifiDeviceStatus
+      WHERE checked_at = (
+        SELECT MAX(checked_at) 
+        FROM WifiDeviceStatus
+      )
+      ORDER BY device_name
+    `);
+    
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("Error getting device status:", error);
+    res.status(500).json({ error: "Server error", details: error.message });
+  }
+});
+
+// API to ping single device (proxy for frontend)
+app.post("/api/ping", async (req, res) => {
+  const { ip } = req.body;
+  
+  if (!ip) {
+    return res.status(400).json({ error: "IP is required" });
+  }
+
+  try {
+    const device = wifiDevices.find(d => d.ip === ip) || { name: ip, ip };
+    const result = await pingDevice(device);
+    
+    res.json(result);
+  } catch (error) {
+    console.error(`Error pinging ${ip}:`, error);
+    res.status(500).json({ 
+      error: "Ping failed",
+      details: error.message 
+    });
+  }
+});
+
+// Schedule regular pings every minute
+const pingJob = schedule.scheduleJob('* * * * *', async () => {
+  console.log('🔄 Scheduled ping job started at', new Date().toISOString());
+  try {
+    for (const device of wifiDevices) {
+      await pingDevice(device);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    console.log('✅ Scheduled ping job completed');
+  } catch (error) {
+    console.error('Error in scheduled ping job:', error);
+  }
+});
+
+// WebSocket connection handler
+wss.on('connection', (ws) => {
+  console.log('New WebSocket client connected');
+  
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+  });
+});
+
+// Keep all your existing API endpoints (tang1beta, tang2beta, etc.)
+// ... (keep all your existing floor APIs)
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('❌ Server Error:', err);
+  res.status(500).json({ error: 'Internal Server Error', details: err.message });
+});
+
+process.on('SIGINT', () => {
+  console.log('Shutting down gracefully...');
+  pingJob.cancel();
+  sqlConnectionPool?.close();
+  server.close(() => {
+    process.exit(0);
+  });
+});
 
 // Thêm endpoint tìm kiếm WiFi locations
 app.get("/api/wifi-locations", async (req, res) => {
