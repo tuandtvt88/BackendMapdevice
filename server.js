@@ -1,9 +1,9 @@
-const express = require("express");
 const sql = require("mssql");
 const cors = require("cors");
 const ping = require('ping');
 const WebSocket = require('ws');
 const schedule = require('node-schedule');
+const dns = require('dns');
 
 const app = express();
 app.use(cors());
@@ -32,26 +32,27 @@ const server = app.listen(process.env.PORT || 5000, () => {
 
 const wss = new WebSocket.Server({ server });
 
-// Thay đổi phần kết nối SQL như sau:
-
 let sqlConnectionPool;
 
 async function connectToDatabase() {
   try {
+    if (sqlConnectionPool && sqlConnectionPool.connected) {
+      return sqlConnectionPool;
+    }
+    
     sqlConnectionPool = await sql.connect(config);
     console.log("✅ Kết nối SQL Server thành công!");
     
-    // Xử lý khi kết nối bị lỗi
     sqlConnectionPool.on('error', err => {
       console.error('❌ Lỗi kết nối SQL:', err);
-      // Tự động kết nối lại sau 5 giây
       setTimeout(connectToDatabase, 5000);
     });
     
+    return sqlConnectionPool;
   } catch (err) {
     console.error("❌ Lỗi kết nối SQL Server:", err);
-    // Tự động thử kết nối lại sau 5 giây
     setTimeout(connectToDatabase, 5000);
+    throw err;
   }
 }
 
@@ -205,10 +206,11 @@ function broadcastPingResult(result) {
     }
   });
 }
-function checkPingPermission() {
+// Hàm kiểm tra ARP
+function checkArp(ip) {
   try {
-    require('child_process').execSync('ping -c 1 127.0.0.1');
-    return true;
+    const arpOutput = require('child_process').execSync(`arp -a ${ip}`).toString();
+    return arpOutput.includes(ip);
   } catch (e) {
     return false;
   }
@@ -269,59 +271,101 @@ function checkPingPermission() {
 //   }
 // };
 
-const dns = require('dns');
 
+
+// Hàm ping thiết bị
 const pingDevice = async (device) => {
-  // Thử phương pháp DNS lookup như fallback
-  try {
-    await new Promise((resolve, reject) => {
-      dns.lookup(device.ip, (err) => {
-        if (err) reject(err);
-        else resolve();
+  const retryCount = 2;
+  const timeout = 1;
+  
+  console.log(`Checking device: ${device.name} (${device.ip})`);
+  console.log('Ping parameters:', {
+    timeout: timeout,
+    retry: retryCount,
+    timestamp: new Date().toISOString()
+  });
+
+  for (let i = 0; i < retryCount; i++) {
+    try {
+      const res = await ping.promise.probe(device.ip, {
+        timeout: timeout,
+        extra: process.platform === 'win32' ? ['-n', '1'] : ['-c', '1']
       });
-    });
-    
-    const status = {
-      name: device.name,
-      ip: device.ip,
-      status: 'online', // Giả định online nếu DNS lookup thành công
-      responseTime: 1, // Giá trị mặc định
-      timestamp: new Date().toISOString()
-    };
-    
-    await savePingResult(status);
-    broadcastPingResult(status);
-    return status;
-  } catch (dnsError) {
-    console.error(`DNS lookup failed for ${device.ip}:`, dnsError);
-    const status = {
-      name: device.name,
-      ip: device.ip,
-      status: 'offline',
-      responseTime: 0,
-      timestamp: new Date().toISOString()
-    };
-    await savePingResult(status);
-    broadcastPingResult(status);
-    return status;
+      
+      console.log(`Ping result for ${device.ip} (attempt ${i+1}):`, {
+        alive: res.alive,
+        time: res.time,
+        output: res.output
+      });
+
+      const status = {
+        name: device.name,
+        ip: device.ip,
+        status: res.alive ? 'online' : 'offline',
+        responseTime: res.alive ? parseInt(res.time) || 1 : 0,
+        timestamp: new Date().toISOString()
+      };
+
+      await savePingResult(status);
+      broadcastPingResult(status);
+      return status;
+    } catch (error) {
+      console.error(`Error pinging ${device.ip} (attempt ${i+1}):`, error);
+      if (i === retryCount - 1) {
+        // Thử kiểm tra ARP nếu ping thất bại
+        const arpResult = checkArp(device.ip);
+        const status = {
+          name: device.name,
+          ip: device.ip,
+          status: arpResult ? 'online' : 'offline',
+          responseTime: arpResult ? 1 : 0,
+          timestamp: new Date().toISOString(),
+          error: error.message
+        };
+        await savePingResult(status);
+        broadcastPingResult(status);
+        return status;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
   }
 };
 
+
+
 // Hàm lưu kết quả ping vào database
-// API to ping all devices
+async function savePingResult(result) {
+  try {
+    const pool = await connectToDatabase();
+    const request = new sql.Request(pool);
+    await request
+      .input('device_name', sql.NVarChar, result.name)
+      .input('ip_address', sql.NVarChar, result.ip)
+      .input('status', sql.NVarChar, result.status)
+      .input('response_time', sql.Int, result.responseTime)
+      .input('checked_at', sql.DateTime, new Date(result.timestamp))
+      .query(`
+        INSERT INTO WifiDeviceStatus (device_name, ip_address, status, response_time, checked_at)
+        VALUES (@device_name, @ip_address, @status, @response_time, @checked_at)
+      `);
+  } catch (error) {
+    console.error('Lỗi khi lưu kết quả ping:', error);
+  }
+}
+// API để ping tất cả thiết bị
 app.get('/api/ping-all-devices', async (req, res) => {
   try {
-    console.log('Starting to ping all devices...');
+    console.log('Bắt đầu ping các thiết bị...');
     const pingResults = [];
     
     for (const device of wifiDevices) {
       try {
         const result = await pingDevice(device);
         pingResults.push(result);
-        console.log(`Pinged ${device.name} (${device.ip}): ${result.status}`);
+        console.log(`Đã ping ${device.name} (${device.ip}): ${result.status}`);
         await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
-        console.error(`Error processing device ${device.name}:`, error);
+        console.error(`Lỗi khi xử lý thiết bị ${device.name}:`, error);
         pingResults.push({
           name: device.name,
           ip: device.ip,
@@ -338,7 +382,7 @@ app.get('/api/ping-all-devices', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Error pinging devices:', error);
+    console.error('Lỗi khi ping thiết bị:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Ping failed',
@@ -350,11 +394,8 @@ app.get('/api/ping-all-devices', async (req, res) => {
 // API to get current device statuses
 app.get("/api/device-status", async (req, res) => {
   try {
-    if (!sqlConnectionPool || !sqlConnectionPool.connected) {
-      await connectToDatabase();
-    }
-    
-    const request = new sql.Request();
+    const pool = await connectToDatabase();
+    const request = new sql.Request(pool);
     const result = await request.query(`
       SELECT device_name, ip_address, status, response_time, checked_at
       FROM WifiDeviceStatus
