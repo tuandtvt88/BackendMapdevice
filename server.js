@@ -456,7 +456,31 @@ app.get('/api/ping-all-devices', async (req, res) => {
     });
   }
 });
+// Hàm lưu kết quả ping vào database
+async function savePingResult(result) {
+  try {
+    if (!sqlConnectionPool || !sqlConnectionPool.connected) {
+      await connectToDatabase();
+    }
+    
+    const request = new sql.Request();
+    await request
+      .input('device_name', sql.NVarChar, result.name)
+      .input('ip_address', sql.NVarChar, result.ip)
+      .input('status', sql.NVarChar, result.status)
+      .input('response_time', sql.Int, result.responseTime)
+      .input('checked_at', sql.DateTime, new Date(result.timestamp))
+      .query(`
+        INSERT INTO WifiDeviceStatus (device_name, ip_address, status, response_time, checked_at)
+        VALUES (@device_name, @ip_address, @status, @response_time, @checked_at)
+      `);
+  } catch (error) {
+    console.error('Lỗi khi lưu kết quả ping:', error);
+  }
+}
 
+// Sau đó mới gọi hàm này
+savePingResult(result);
 // ✅ GET - Lấy danh sách WiFi tầng 1 Beta
 app.get("/api/tang1beta", async (req, res) => {
   try {
