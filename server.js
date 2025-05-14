@@ -274,61 +274,69 @@ function checkArp(ip) {
 
 
 
-// Hàm ping thiết bị
+// Thêm hàm kiểm tra quyền ping
+function checkPingPermission() {
+  try {
+    require('child_process').execSync('ping -c 1 127.0.0.1');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Sửa lại hàm pingDevice
 const pingDevice = async (device) => {
-  const retryCount = 2;
-  const timeout = 1;
+  const canPing = checkPingPermission();
   
-  console.log(`Checking device: ${device.name} (${device.ip})`);
-  console.log('Ping parameters:', {
-    timeout: timeout,
-    retry: retryCount,
-    timestamp: new Date().toISOString()
-  });
+  if (!canPing) {
+    console.warn('⚠️ Không có quyền thực hiện ping, sử dụng fallback');
+    const status = {
+      name: device.name,
+      ip: device.ip,
+      status: 'unknown',
+      responseTime: 0,
+      timestamp: new Date().toISOString(),
+      error: 'No ping permission'
+    };
+    await savePingResult(status);
+    broadcastPingResult(status);
+    return status;
+  }
+  
+  try {
+    // Sử dụng ping hệ thống thay vì spawn
+    const res = await ping.promise.probe(device.ip, {
+      timeout: 2,
+      extra: ['-i', '2'],
+    });
+    
+    const status = {
+      name: device.name,
+      ip: device.ip,
+      status: res.alive ? 'online' : 'offline',
+      responseTime: res.alive ? parseInt(res.avg) || 0 : 0,
+      timestamp: new Date().toISOString()
+    };
 
-  for (let i = 0; i < retryCount; i++) {
-    try {
-      const res = await ping.promise.probe(device.ip, {
-        timeout: timeout,
-        extra: process.platform === 'win32' ? ['-n', '1'] : ['-c', '1']
-      });
-      
-      console.log(`Ping result for ${device.ip} (attempt ${i+1}):`, {
-        alive: res.alive,
-        time: res.time,
-        output: res.output
-      });
-
-      const status = {
-        name: device.name,
-        ip: device.ip,
-        status: res.alive ? 'online' : 'offline',
-        responseTime: res.alive ? parseInt(res.time) || 1 : 0,
-        timestamp: new Date().toISOString()
-      };
-
-      await savePingResult(status);
-      broadcastPingResult(status);
-      return status;
-    } catch (error) {
-      console.error(`Error pinging ${device.ip} (attempt ${i+1}):`, error);
-      if (i === retryCount - 1) {
-        // Thử kiểm tra ARP nếu ping thất bại
-        const arpResult = checkArp(device.ip);
-        const status = {
-          name: device.name,
-          ip: device.ip,
-          status: arpResult ? 'online' : 'offline',
-          responseTime: arpResult ? 1 : 0,
-          timestamp: new Date().toISOString(),
-          error: error.message
-        };
-        await savePingResult(status);
-        broadcastPingResult(status);
-        return status;
-      }
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    await savePingResult(status);
+    broadcastPingResult(status);
+    
+    return status;
+  } catch (error) {
+    console.error(`Error pinging ${device.ip}:`, error);
+    
+    const status = {
+      name: device.name,
+      ip: device.ip,
+      status: 'unknown',
+      responseTime: 0,
+      timestamp: new Date().toISOString(),
+      error: error.message
+    };
+    
+    await savePingResult(status);
+    broadcastPingResult(status);
+    return status;
   }
 };
 
