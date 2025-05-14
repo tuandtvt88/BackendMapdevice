@@ -205,15 +205,37 @@ function broadcastPingResult(result) {
     }
   });
 }
-
+function checkPingPermission() {
+  try {
+    require('child_process').execSync('ping -c 1 127.0.0.1');
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 // Ping a single device
 const pingDevice = async (device) => {
+    const canPing = checkPingPermission();
+  
+  if (!canPing) {
+    console.warn('⚠️ Không có quyền thực hiện ping, sử dụng fallback');
+    const status = {
+      name: device.name,
+      ip: device.ip,
+      status: 'unknown',
+      responseTime: 0,
+      timestamp: new Date().toISOString(),
+      error: 'No ping permission'
+    };
+    await savePingResult(status);
+    broadcastPingResult(status);
+    return status;
+  }
   try {
     // Thêm option để sử dụng hệ thống ping thay vì spawn
     const res = await ping.promise.probe(device.ip, {
       timeout: 2,
       extra: ['-i', '2'],
-      v6: false, // Chỉ sử dụng IPv4
     });
     
     const status = {
