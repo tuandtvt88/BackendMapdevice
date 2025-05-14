@@ -208,11 +208,23 @@ function broadcastPingResult(result) {
   });
 }
 // Hàm kiểm tra ARP
+// Thay thế hàm checkArp bằng phương pháp khác
 function checkArp(ip) {
+  // Fallback khi không có lệnh arp
+  return false;
+  
+  // Hoặc sử dụng phương pháp thay thế như kiểm tra kết nối TCP
   try {
-    const arpOutput = require('child_process').execSync(`arp -a ${ip}`).toString();
-    return arpOutput.includes(ip);
-  } catch (e) {
+    const net = require('net');
+    const socket = new net.Socket();
+    return new Promise((resolve) => {
+      socket.on('error', () => resolve(false));
+      socket.connect(80, ip, () => {
+        socket.end();
+        resolve(true);
+      });
+    });
+  } catch {
     return false;
   }
 }
