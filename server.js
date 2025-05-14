@@ -320,35 +320,15 @@ function checkPingPermission() {
 
 // Sửa lại hàm pingDevice
 const pingDevice = async (device) => {
-  const canPing = checkPingPermission();
-  
-  if (!canPing) {
-    console.warn('⚠️ Không có quyền thực hiện ping, sử dụng fallback');
-    const status = {
-      name: device.name,
-      ip: device.ip,
-      status: 'unknown',
-      responseTime: 0,
-      timestamp: new Date().toISOString(),
-      error: 'No ping permission'
-    };
-    await savePingResult(status);
-    broadcastPingResult(status);
-    return status;
-  }
-  
   try {
-    // Sử dụng ping hệ thống thay vì spawn
-    const res = await ping.promise.probe(device.ip, {
-      timeout: 2,
-      extra: ['-i', '2'],
-    });
+    // Thử kết nối TCP đến cổng 80 (HTTP) với timeout 2 giây
+    const isOnline = await checkPort(device.ip, 80, 2000);
     
     const status = {
       name: device.name,
       ip: device.ip,
-      status: res.alive ? 'online' : 'offline',
-      responseTime: res.alive ? parseInt(res.avg) || 0 : 0,
+      status: isOnline ? 'online' : 'offline',
+      responseTime: isOnline ? 1 : 0, // Không đo được ping thực tế
       timestamp: new Date().toISOString()
     };
 
@@ -357,7 +337,7 @@ const pingDevice = async (device) => {
     
     return status;
   } catch (error) {
-    console.error(`Error pinging ${device.ip}:`, error);
+    console.error(`Error checking ${device.ip}:`, error);
     
     const status = {
       name: device.name,
@@ -373,6 +353,30 @@ const pingDevice = async (device) => {
     return status;
   }
 };
+
+// Hàm kiểm tra cổng TCP
+async function checkPort(ip, port = 80, timeout = 2000) {
+  return new Promise((resolve) => {
+    const socket = new require('net').Socket();
+    socket.setTimeout(timeout);
+    
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+    
+    socket.on('error', () => {
+      resolve(false);
+    });
+    
+    socket.connect(port, ip);
+  });
+}
 
 
 
