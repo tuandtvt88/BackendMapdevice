@@ -479,8 +479,6 @@ async function savePingResult(result) {
   }
 }
 
-// Sau đó mới gọi hàm này
-savePingResult(result);
 // ✅ GET - Lấy danh sách WiFi tầng 1 Beta
 app.get("/api/tang1beta", async (req, res) => {
   try {
